@@ -16,39 +16,75 @@ var troubleMakers = [...]string{
 	"target",
 }
 
+type result struct {
+	path            string
+	numFiles, bytes uint64
+}
+
+func (r result) String() string {
+	return fmt.Sprintf(
+		"%s (%d files, %s)", r.path, r.numFiles, humanize.Bytes(r.bytes))
+}
+
 func main() {
 	dirname := "."
 	if len(os.Args) > 1 {
 		dirname = os.Args[1]
 	}
 
-	scan(dirname)
-}
-
-var wg sync.WaitGroup
-
-func scan(dirname string) {
-	err := godirwalk.Walk(dirname, &godirwalk.Options{Unsorted: true, Callback: matcher})
-	wg.Wait()
+	res, err := scan(dirname)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+	for r := range res {
+		fmt.Println(r)
+	}
 }
 
-func matcher(path string, de *godirwalk.Dirent) error {
-	var isMatch = isTrouble(path) && de.IsDir()
-	if isMatch {
-		wg.Add(1)
-		go func() {
-			files, size, _ := dirStats(path) // TODO: handle err
-			fmt.Printf("%s (%d files, %s)\n", path, files, humanize.Bytes(size))
-			wg.Done()
-		}()
-		return filepath.SkipDir
-	}
+// TODO: consider use channel without subproc first, then switch to
+// scanner than does new chan for each subdir? this would be uniformly parallel...
+// but maybe too much overhead switching so often, look at how rust fd does it?
+//
+// using producer-consumer pattern would be cleaner conceptually than waitgroups..
+// https://stackoverflow.com/questions/38170852/is-this-an-idiomatic-worker-thread-pool-in-go/38172204#38172204
+//
+// maybe wait until after tho so can compare benchmarks
 
-	return nil
+func scan(dirname string) (<-chan result, error) {
+	var wg sync.WaitGroup
+	res := make(chan result)
+	go func() {
+		_ = godirwalk.Walk(dirname, &godirwalk.Options{
+			Unsorted: true, // do these in order? wont retrurn in order so doesnt matter!
+			Callback: func(path string, de *godirwalk.Dirent) error {
+				var isMatch = isTrouble(path) && de.IsDir()
+				if isMatch {
+					// spawn a sub-walker to get the dirstats for subtree
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						files, size, _ := dirStats(path) // TODO: handle err
+						res <- result{
+							path:     path,
+							numFiles: files,
+							bytes:    size,
+						}
+					}()
+					// tell main walker to stop walking this subtree
+					return filepath.SkipDir
+				}
+				return nil
+			},
+		})
+		// TODO NEED TO DO SOMETHING WITH ERRRRRRS
+		// if err != nil {
+		// 	return nil, err
+		// }
+		wg.Wait()
+		close(res)
+	}()
+	return res, nil
 }
 
 func isTrouble(path string) bool {
