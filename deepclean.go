@@ -23,7 +23,7 @@ type result struct {
 
 func (r result) String() string {
 	return fmt.Sprintf(
-		"%s (%d files, %s)", r.path, r.numFiles, humanize.Bytes(r.bytes))
+		"%d\t%s\t%s", r.numFiles, humanize.Bytes(r.bytes), r.path)
 }
 
 func main() {
