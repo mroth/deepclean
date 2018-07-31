@@ -22,11 +22,7 @@ func main() {
 		dirname = os.Args[1]
 	}
 
-	res, err := scan(dirname)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	res := scan(dirname)
 
 	var rs results
 	for r := range res {
@@ -50,12 +46,12 @@ func main() {
 //
 // maybe wait until after tho so can compare benchmarks
 
-func scan(dirname string) (<-chan result, error) {
-	var wg sync.WaitGroup
+func scan(dirname string) <-chan result {
 	resultsChan := make(chan result)
 	go func() {
-		_ = godirwalk.Walk(dirname, &godirwalk.Options{
-			Unsorted: true, // do these in order? wont retrurn in order so doesnt matter!
+		var wg sync.WaitGroup
+		err := godirwalk.Walk(dirname, &godirwalk.Options{
+			Unsorted: true, // do these in order? wont return in order so doesnt matter!
 			Callback: func(path string, de *godirwalk.Dirent) error {
 				var isMatch = isTrouble(path) && de.IsDir()
 				if isMatch {
@@ -71,15 +67,20 @@ func scan(dirname string) (<-chan result, error) {
 				}
 				return nil
 			},
+			ErrorCallback: func(path string, err error) godirwalk.ErrorAction {
+				fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+				return godirwalk.SkipNode
+			},
 		})
-		// TODO NEED TO DO SOMETHING WITH ERRRRRRS
-		// if err != nil {
-		// 	return nil, err
-		// }
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "FATAL ERROR: %s\n", err)
+			os.Exit(1)
+		}
 		wg.Wait()
 		close(resultsChan)
 	}()
-	return resultsChan, nil
+	return resultsChan
 }
 
 func isTrouble(path string) bool {
