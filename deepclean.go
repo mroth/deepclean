@@ -16,16 +16,6 @@ var troubleMakers = [...]string{
 	"target",
 }
 
-type result struct {
-	path            string
-	numFiles, bytes uint64
-}
-
-func (r result) String() string {
-	return fmt.Sprintf(
-		"%d\t%s\t%s", r.numFiles, humanize.Bytes(r.bytes), r.path)
-}
-
 func main() {
 	dirname := "."
 	if len(os.Args) > 1 {
@@ -37,9 +27,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+
+	var rs results
 	for r := range res {
 		fmt.Println(r)
+		rs = append(rs, r)
 	}
+
+	total := rs.Sum()
+	fmt.Fprintf(os.Stderr,
+		"\nTotal cleanable discovered: %d files, %v\n",
+		total.numFiles, humanize.Bytes(total.bytes),
+	)
 }
 
 // TODO: consider use channel without subproc first, then switch to
@@ -66,9 +65,11 @@ func scan(dirname string) (<-chan result, error) {
 						defer wg.Done()
 						files, size, _ := dirStats(path) // TODO: handle err
 						res <- result{
-							path:     path,
-							numFiles: files,
-							bytes:    size,
+							path: path,
+							totals: totals{
+								numFiles: files,
+								bytes:    size,
+							},
 						}
 					}()
 					// tell main walker to stop walking this subtree
