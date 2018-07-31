@@ -52,7 +52,7 @@ func main() {
 
 func scan(dirname string) (<-chan result, error) {
 	var wg sync.WaitGroup
-	res := make(chan result)
+	resultsChan := make(chan result)
 	go func() {
 		_ = godirwalk.Walk(dirname, &godirwalk.Options{
 			Unsorted: true, // do these in order? wont retrurn in order so doesnt matter!
@@ -63,14 +63,8 @@ func scan(dirname string) (<-chan result, error) {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						files, size, _ := dirStats(path) // TODO: handle err
-						res <- result{
-							path: path,
-							totals: totals{
-								numFiles: files,
-								bytes:    size,
-							},
-						}
+						r, _ := dirStats(path) // TODO: handle err
+						resultsChan <- r
 					}()
 					// tell main walker to stop walking this subtree
 					return filepath.SkipDir
@@ -83,9 +77,9 @@ func scan(dirname string) (<-chan result, error) {
 		// 	return nil, err
 		// }
 		wg.Wait()
-		close(res)
+		close(resultsChan)
 	}()
-	return res, nil
+	return resultsChan, nil
 }
 
 func isTrouble(path string) bool {
@@ -97,20 +91,21 @@ func isTrouble(path string) bool {
 	return false
 }
 
-func dirStats(path string) (files, size uint64, err error) {
-	err = godirwalk.Walk(path, &godirwalk.Options{
+func dirStats(path string) (result, error) {
+	var t totals
+	err := godirwalk.Walk(path, &godirwalk.Options{
 		Unsorted: true,
 		Callback: func(path string, de *godirwalk.Dirent) error {
 			fi, err := os.Stat(path)
 			if err != nil {
 				return err
 			}
-			files++
-			size += uint64(fi.Size())
+			t.numFiles++
+			t.bytes += uint64(fi.Size())
 			return nil
 		},
 	})
-	return files, size, err
+	return result{path: path, totals: t}, err
 }
 
 // https://stackoverflow.com/questions/13422381/idiomatically-buffer-os-stdout
