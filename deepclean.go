@@ -37,32 +37,17 @@ func main() {
 	)
 }
 
-// TODO: consider use channel without subproc first, then switch to
-// scanner than does new chan for each subdir? this would be uniformly parallel...
-// but maybe too much overhead switching so often, look at how rust fd does it?
-//
-// using producer-consumer pattern would be cleaner conceptually than waitgroups..
-// https://stackoverflow.com/questions/38170852/is-this-an-idiomatic-worker-thread-pool-in-go/38172204#38172204
-//
-// maybe wait until after tho so can compare benchmarks
-
 func scan(dirname string) <-chan result {
 	resultsChan := make(chan result)
 	go func() {
 		var wg sync.WaitGroup
 		err := godirwalk.Walk(dirname, &godirwalk.Options{
-			Unsorted: true, // do these in order? wont return in order so doesnt matter!
+			Unsorted: true,
 			Callback: func(path string, de *godirwalk.Dirent) error {
 				var isMatch = isTarget(path) && de.IsDir()
 				if isMatch {
-					// spawn a sub-walker to get the dirstats for subtree
 					wg.Add(1)
-					go func() {
-						defer wg.Done()
-						r, _ := dirStats(path) // TODO: handle err
-						resultsChan <- r
-					}()
-					// tell main walker to stop walking this subtree
+					go dirStatter(path, resultsChan, &wg)
 					return filepath.SkipDir
 				}
 				return nil
@@ -92,6 +77,12 @@ func isTarget(path string) bool {
 	return false
 }
 
+func dirStatter(path string, resultsChan chan result, wg *sync.WaitGroup) {
+	defer wg.Done()
+	r, _ := dirStats(path) // TODO: handle err
+	resultsChan <- r
+}
+
 func dirStats(path string) (result, error) {
 	var t totals
 	err := godirwalk.Walk(path, &godirwalk.Options{
@@ -109,21 +100,4 @@ func dirStats(path string) (result, error) {
 	return result{path: path, totals: t}, err
 }
 
-// https://stackoverflow.com/questions/13422381/idiomatically-buffer-os-stdout
-
-// When set to true, Walk skips sorting the list of immediate descendants
-// for a directory, and simply visits each node in the order the operating
-// system enumerated them. This will be more fast, but with the side effect
-// that the traversal order may be different from one invocation to the
-// next.
-// Unsorted bool
-
-// ScratchBuffer is an optional scratch buffer for Walk to use when reading
-// directory entries, to reduce amount of garbage generation. Not all
-// architectures take advantage of the scratch buffer.
-// ScratchBuffer []byte
-
 // http://flummox-engineering.blogspot.com/2015/05/how-to-check-if-file-is-in-git.html
-
-// https://gobyexample.com/worker-pools
-// https://stackoverflow.com/questions/44255814/concurrent-filesystem-scanning
