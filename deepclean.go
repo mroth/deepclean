@@ -10,7 +10,7 @@ import (
 	"github.com/karrick/godirwalk"
 )
 
-var troubleMakers = [...]string{
+var targets = [...]string{
 	"node_modules",
 	".bundle",
 	"target",
@@ -53,7 +53,7 @@ func scan(dirname string) <-chan result {
 		err := godirwalk.Walk(dirname, &godirwalk.Options{
 			Unsorted: true, // do these in order? wont return in order so doesnt matter!
 			Callback: func(path string, de *godirwalk.Dirent) error {
-				var isMatch = isTrouble(path) && de.IsDir()
+				var isMatch = isTarget(path) && de.IsDir()
 				if isMatch {
 					// spawn a sub-walker to get the dirstats for subtree
 					wg.Add(1)
@@ -83,9 +83,9 @@ func scan(dirname string) <-chan result {
 	return resultsChan
 }
 
-func isTrouble(path string) bool {
-	for i := range troubleMakers {
-		if troubleMakers[i] == filepath.Base(path) {
+func isTarget(path string) bool {
+	for i := range targets {
+		if targets[i] == filepath.Base(path) {
 			return true
 		}
 	}
