@@ -1,25 +1,29 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/dustin/go-humanize"
 	"github.com/karrick/godirwalk"
 )
 
-var targets = [...]string{
-	"node_modules",
-	".bundle",
-	"target",
-}
+const defaultTargets = "node_modules,.bundle,target"
+
+var targets = flag.String("target", defaultTargets, "dirs to scan for")
+var _targets []string
 
 func main() {
+	flag.Parse()
+	_targets = strings.Split(*targets, ",")
+
 	dirname := "."
-	if len(os.Args) > 1 {
-		dirname = os.Args[1]
+	if len(flag.Args()) >= 1 {
+		dirname = flag.Arg(0)
 	}
 
 	res := scan(dirname)
@@ -69,8 +73,8 @@ func scan(dirname string) <-chan result {
 }
 
 func isTarget(path string) bool {
-	for i := range targets {
-		if targets[i] == filepath.Base(path) {
+	for i := range _targets {
+		if _targets[i] == filepath.Base(path) {
 			return true
 		}
 	}
