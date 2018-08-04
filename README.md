@@ -3,13 +3,17 @@
 > be disrespectful to filesystem dirt :sparkles::wastebasket::sparkles:
 
 Currently looks for the following:
- - .bundle (Ruby)
- - node_modules (NPM)
- - target (Rust)
+ - .bundle (Ruby Bundler)
+ - node_modules (NodeJS NPM)
+ - target (Rust Cargo, Scala SBT)
 
-TODO: only recommend these for deletion if they are `.gitignore`'d, not tracked in git.
+However it's easy to overrride this list.
 
-deepclean will take advantage of multiple cores on your machine.
+TODO: only recommend these for deletion if they are `.gitignore`'d, not tracked
+in git.
+
+deepclean will take advantage of multiple cores on your machine by gathering
+statistics for matched directories in parallel.
 
 
 ### Why not `find`?
