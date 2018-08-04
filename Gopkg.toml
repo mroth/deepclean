@@ -1,0 +1,14 @@
+# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
+# for detailed Gopkg.toml documentation.
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/dustin/go-humanize"
+
+[[constraint]]
+  name = "github.com/karrick/godirwalk"
+  version = "1.7.1"
+
+[prune]
+  go-tests = true
+  unused-packages = true
