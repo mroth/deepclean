@@ -25,12 +25,21 @@
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
 
+[[projects]]
+  digest = "1:da8d4acfde6ab8378152320f96377912e81200e5ac65232a22782163a710e5a4"
+  name = "github.com/tj/go-spin"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "30574f5fadef1aa5c61d4c42e936785af9f03ada"
+  version = "v1.1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/dustin/go-humanize",
     "github.com/karrick/godirwalk",
+    "github.com/tj/go-spin",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

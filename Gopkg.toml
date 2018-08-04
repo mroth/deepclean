@@ -9,6 +9,10 @@
   name = "github.com/karrick/godirwalk"
   version = "1.7.1"
 
+[[constraint]]
+  name = "github.com/tj/go-spin"
+  version = "1.1.0"
+
 [prune]
   go-tests = true
   unused-packages = true

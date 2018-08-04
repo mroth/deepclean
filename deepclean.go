@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/karrick/godirwalk"
+	"github.com/tj/go-spin"
 )
 
 const defaultTargets = "node_modules,.bundle,target"
 
 var targets = flag.String("target", defaultTargets, "dirs to scan for")
+var sorted = flag.Bool("sort", false, "sort output")
 var _targets []string
 
 func main() {
@@ -27,18 +31,7 @@ func main() {
 	}
 
 	res := scan(dirname)
-
-	var rs results
-	for r := range res {
-		fmt.Println(r)
-		rs = append(rs, r)
-	}
-
-	total := rs.Sum()
-	fmt.Fprintf(os.Stderr,
-		"\nTotal cleanable discovered: %d files, %v\n",
-		total.numFiles, humanize.Bytes(total.bytes),
-	)
+	printResults(res)
 }
 
 func scan(dirname string) <-chan result {
@@ -105,3 +98,44 @@ func dirStats(path string) (result, error) {
 }
 
 // http://flummox-engineering.blogspot.com/2015/05/how-to-check-if-file-is-in-git.html
+
+func printResults(res <-chan result) {
+	var rs results
+	var done = false
+	if *sorted {
+		go func() {
+			s := spin.New()
+			for !done {
+				fmt.Fprintf(
+					os.Stderr,
+					"\r%v %s", s.Next(), strings.Repeat(".", len(rs)),
+				)
+				time.Sleep(100 * time.Millisecond)
+			}
+		}()
+	}
+
+	for r := range res {
+		if !*sorted {
+			fmt.Println(r)
+		}
+		rs = append(rs, r)
+	}
+	done = true
+
+	if *sorted {
+		sort.Slice(rs, func(i, j int) bool {
+			return rs[i].numFiles > rs[j].numFiles
+		})
+		fmt.Fprintf(os.Stderr, "\r√\n")
+		for _, r := range rs {
+			fmt.Println(r)
+		}
+	}
+
+	total := rs.Sum()
+	fmt.Fprintf(os.Stderr,
+		"\nTotal cleanable discovered: %d files, %v\n",
+		total.numFiles, humanize.Bytes(total.bytes),
+	)
+}
