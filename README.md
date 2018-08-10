@@ -2,6 +2,14 @@
 
 > be disrespectful to filesystem dirt :sparkles::wastebasket::sparkles:
 
+I often have a bunch of junk dependency files sitting around in my source folder
+that I don't actually need. Periodically I want to clean them up on inactive
+projects, as I recently discovered when I wanted to transfer my src dir to a new
+computer, and it was taking forever due to over _half a million_ junk files in
+`node_modules` directories.
+
+<img width="600" src="docs/demo.svg">
+
 Currently looks for the following:
  - `.bundle` (Ruby Bundler)
  - `node_modules` (NodeJS NPM)
@@ -9,11 +17,14 @@ Currently looks for the following:
 
 However it's easy to overrride this list.
 
-deepclean will take advantage of multiple cores on your machine by gathering
-statistics for matched directories in parallel.
+Deepclean is very fast -- it will take advantage of multiple cores on your
+machine by gathering statistics for matched directories in parallel.
 
-TODO: only recommend these for deletion if they are `.gitignore`'d, not tracked
-in git.
+Nothing is actually deleted at the moment due to paranoia, just surfaced in the
+UI so the user can decide on their own how to handle.
+
+_TODO: only recommend these for deletion if they are `.gitignore`'d, not tracked
+in git._
 
 ## Installation
 
