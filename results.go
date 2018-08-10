@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 )
 
 type totals struct {
