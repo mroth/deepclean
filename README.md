@@ -25,7 +25,7 @@ you can `brew install mroth/formulas/deepclean`.
 
 ## Usage
 
-    deepclean [options] [dir]
+    Usage: deepclean [options] [dir]
 
     Options:
       -sort

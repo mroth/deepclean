@@ -22,6 +22,11 @@ var sorted = flag.Bool("sort", false, "sort output")
 var _targets []string
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [dir]\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "\nOptions:\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	_targets = strings.Split(*targets, ",")
 
