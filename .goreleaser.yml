@@ -25,6 +25,8 @@ brew:
   github:
       owner: mroth
       name: homebrew-formulas
+  description: "Scan and remove junk files from source code directories"
+  homepage: "https://github.com/mroth/deepclean"
   skip_upload: false
 changelog:
   sort: asc
