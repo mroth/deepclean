@@ -1,56 +1,35 @@
-package main
+package deepclean
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"sync"
-	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/karrick/godirwalk"
-	"github.com/tj/go-spin"
 )
 
-const defaultTargets = "node_modules,.bundle,target"
-
-var (
-	targetStr = flag.String("target", defaultTargets, "dirs to scan for")
-	sorted    = flag.Bool("sort", false, "sort output")
-)
-
-func main() {
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [dir]\n", os.Args[0])
-		fmt.Fprintf(flag.CommandLine.Output(), "\nOptions:\n")
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-
-	targets := strings.Split(*targetStr, ",")
-	dirname := flag.Arg(0)
-	if dirname == "" {
-		dirname = "."
-	}
-
-	res := scan(dirname, targets)
-	printResults(res)
-}
-
-func scan(dirname string, targets []string) <-chan result {
-	resultsChan := make(chan result)
+// Scan walks the path searching for directories matching the targets strings,
+// and then initiates a DirStats on the directory, returning the Results as they
+// occur on the returned channel.
+func Scan(path string, targets []string) <-chan Result {
+	resultsChan := make(chan Result)
 	go func() {
 		var wg sync.WaitGroup
-		err := godirwalk.Walk(dirname, &godirwalk.Options{
+		err := godirwalk.Walk(path, &godirwalk.Options{
 			Unsorted: true,
 			Callback: func(path string, de *godirwalk.Dirent) error {
-				var isMatch = inTargets(targets, path) && de.IsDir()
-				if isMatch {
+				// Positives are directories matching any target string. For
+				// each match, spawn background goroutine to gather stats, but
+				// skip further walking of the subdir in this primary scan
+				// thread.
+				if de.IsDir() && inTargets(targets, path) {
 					wg.Add(1)
-					go dirStatter(path, resultsChan, &wg)
+					go func() {
+						defer wg.Done()
+						s, _ := Stat(path) // TODO: handle err
+						resultsChan <- Result{Path: path, Stats: s}
+					}()
 					return filepath.SkipDir
 				}
 				return nil
@@ -80,14 +59,9 @@ func inTargets(targets []string, path string) bool {
 	return false
 }
 
-func dirStatter(path string, resultsChan chan result, wg *sync.WaitGroup) {
-	defer wg.Done()
-	r, _ := dirStats(path) // TODO: handle err
-	resultsChan <- r
-}
-
-func dirStats(path string) (result, error) {
-	var t totals
+// Stat walks the directory at path collecting the ***
+func Stat(path string) (DirStats, error) {
+	var t DirStats
 	err := godirwalk.Walk(path, &godirwalk.Options{
 		Unsorted: true,
 		Callback: func(path string, de *godirwalk.Dirent) error {
@@ -95,53 +69,12 @@ func dirStats(path string) (result, error) {
 			if err != nil {
 				return err
 			}
-			t.numFiles++
-			t.bytes += uint64(fi.Size())
+			t.Files++
+			t.Bytes += uint64(fi.Size())
 			return nil
 		},
 	})
-	return result{path: path, totals: t}, err
+	return t, err
 }
 
 // http://flummox-engineering.blogspot.com/2015/05/how-to-check-if-file-is-in-git.html
-
-func printResults(res <-chan result) {
-	var rs results
-	var done = false
-	if *sorted {
-		go func() {
-			s := spin.New()
-			for !done {
-				fmt.Fprintf(
-					os.Stderr,
-					"\r%v %s", s.Next(), strings.Repeat(".", len(rs)),
-				)
-				time.Sleep(100 * time.Millisecond)
-			}
-		}()
-	}
-
-	for r := range res {
-		if !*sorted {
-			fmt.Println(r)
-		}
-		rs = append(rs, r)
-	}
-	done = true
-
-	if *sorted {
-		sort.Slice(rs, func(i, j int) bool {
-			return rs[i].numFiles > rs[j].numFiles
-		})
-		fmt.Fprintf(os.Stderr, "\r√\n")
-		for _, r := range rs {
-			fmt.Println(r)
-		}
-	}
-
-	total := rs.Sum()
-	fmt.Fprintf(os.Stderr,
-		"\nTotal cleanable discovered: %d files, %v\n",
-		total.numFiles, humanize.Bytes(total.bytes),
-	)
-}

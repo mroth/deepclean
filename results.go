@@ -1,38 +1,27 @@
-package main
+package deepclean
 
-import (
-	"fmt"
-
-	"github.com/dustin/go-humanize"
-)
-
-type totals struct {
-	numFiles, bytes uint64
+type DirStats struct {
+	Files uint64
+	Bytes uint64
 }
 
-func (a totals) Add(b totals) totals {
-	return totals{
-		numFiles: a.numFiles + b.numFiles,
-		bytes:    a.bytes + b.bytes,
+// Add two DirStats together to aggregate the results.
+func (a DirStats) Add(b DirStats) DirStats {
+	return DirStats{
+		Files: a.Files + b.Files,
+		Bytes: a.Bytes + b.Bytes,
 	}
 }
 
-type result struct {
-	path string
-	totals
+type Result struct {
+	Path  string
+	Stats DirStats
 }
 
-func (r result) String() string {
-	return fmt.Sprintf(
-		"%7d\t%7s\t%s", r.numFiles, humanize.Bytes(r.bytes), r.path)
-}
-
-type results []result
-
-func (rs results) Sum() totals {
-	var t totals
+func Aggregate(rs ...Result) DirStats {
+	var t DirStats
 	for _, r := range rs {
-		t = t.Add(r.totals)
+		t = t.Add(r.Stats)
 	}
 	return t
 }
