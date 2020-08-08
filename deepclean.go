@@ -59,7 +59,7 @@ func inTargets(targets []string, path string) bool {
 	return false
 }
 
-// Stat walks the directory at path collecting the ***
+// Stat walks the directory at path collecting the aggregate DirStats.
 func Stat(path string) (DirStats, error) {
 	var t DirStats
 	err := godirwalk.Walk(path, &godirwalk.Options{
@@ -76,5 +76,3 @@ func Stat(path string) (DirStats, error) {
 	})
 	return t, err
 }
-
-// http://flummox-engineering.blogspot.com/2015/05/how-to-check-if-file-is-in-git.html
