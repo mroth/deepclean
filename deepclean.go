@@ -17,9 +17,10 @@ import (
 
 const defaultTargets = "node_modules,.bundle,target"
 
-var targets = flag.String("target", defaultTargets, "dirs to scan for")
-var sorted = flag.Bool("sort", false, "sort output")
-var _targets []string
+var (
+	targetStr = flag.String("target", defaultTargets, "dirs to scan for")
+	sorted    = flag.Bool("sort", false, "sort output")
+)
 
 func main() {
 	flag.Usage = func() {
@@ -28,25 +29,25 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	_targets = strings.Split(*targets, ",")
 
-	dirname := "."
-	if len(flag.Args()) >= 1 {
-		dirname = flag.Arg(0)
+	targets := strings.Split(*targetStr, ",")
+	dirname := flag.Arg(0)
+	if dirname == "" {
+		dirname = "."
 	}
 
-	res := scan(dirname)
+	res := scan(dirname, targets)
 	printResults(res)
 }
 
-func scan(dirname string) <-chan result {
+func scan(dirname string, targets []string) <-chan result {
 	resultsChan := make(chan result)
 	go func() {
 		var wg sync.WaitGroup
 		err := godirwalk.Walk(dirname, &godirwalk.Options{
 			Unsorted: true,
 			Callback: func(path string, de *godirwalk.Dirent) error {
-				var isMatch = isTarget(path) && de.IsDir()
+				var isMatch = inTargets(targets, path) && de.IsDir()
 				if isMatch {
 					wg.Add(1)
 					go dirStatter(path, resultsChan, &wg)
@@ -70,9 +71,9 @@ func scan(dirname string) <-chan result {
 	return resultsChan
 }
 
-func isTarget(path string) bool {
-	for i := range _targets {
-		if _targets[i] == filepath.Base(path) {
+func inTargets(targets []string, path string) bool {
+	for _, t := range targets {
+		if t == filepath.Base(path) {
 			return true
 		}
 	}
