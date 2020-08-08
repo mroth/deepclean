@@ -42,28 +42,33 @@ func printResults(res <-chan deepclean.Result) {
 	var rs []deepclean.Result
 
 	// if going to display sorted results, we wont display until scan is
-	// complete, so display a spinner such that user can monitor progress.
-	var done = false
+	// complete, so display a progress monitor.
+	done := make(chan struct{})
 	if *sorted {
 		go func() {
 			s := spin.New()
-			for !done {
-				fmt.Fprintf(
-					os.Stderr,
-					"\r%v %s", s.Next(), strings.Repeat(".", len(rs)),
-				)
-				time.Sleep(100 * time.Millisecond)
+			t := time.NewTicker(100 * time.Millisecond)
+			defer t.Stop()
+			for {
+				select {
+				case <-t.C:
+					fmt.Fprintf(os.Stderr,
+						"\r%v %s", s.Next(), strings.Repeat(".", len(rs)),
+					)
+				case <-done:
+					return
+				}
 			}
 		}()
 	}
 
 	for r := range res {
+		rs = append(rs, r)
 		if !*sorted {
 			fmt.Println(formatResult(r))
 		}
-		rs = append(rs, r)
 	}
-	done = true
+	close(done)
 
 	if *sorted {
 		sort.Slice(rs, func(i, j int) bool {
