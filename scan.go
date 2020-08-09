@@ -1,7 +1,6 @@
 package deepclean
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -9,14 +8,37 @@ import (
 	"github.com/karrick/godirwalk"
 )
 
+// Scanner contains fields to access the results of an ongoing Scan.
+//
+// If the underlying filepath Walk encounters a fatal error, the results
+// channel will be closed and Err() will return a non-nil value. Always
+// drain (*Scanner).C prior to checking Err().
+//
+// If the underlying filepath Walk encounters a non-fatal error, the
+// walked directory will be silently skipped (for now).
+type Scanner struct {
+	C   <-chan Result
+	err error
+}
+
+// Err returns the error status of the underlying filepath Walk performed by the
+// scanner. This will only be set once the Walk has exited, indicated by the
+// Results channel being closed.
+func (s Scanner) Err() error {
+	return s.err
+}
+
 // Scan walks the path searching for directories matching the targets strings,
 // and then initiates a DirStats on the directory, returning the Results as they
 // occur on the returned channel.
-func Scan(path string, targets []string) <-chan Result {
+func Scan(path string, targets []string) *Scanner {
 	resultsChan := make(chan Result)
+	scanner := Scanner{C: resultsChan}
+
 	go func() {
+		defer close(resultsChan)
 		var wg sync.WaitGroup
-		err := godirwalk.Walk(path, &godirwalk.Options{
+		scanner.err = godirwalk.Walk(path, &godirwalk.Options{
 			Unsorted: true,
 			Callback: func(path string, de *godirwalk.Dirent) error {
 				// Positives are directories matching any target string. For
@@ -27,27 +49,23 @@ func Scan(path string, targets []string) <-chan Result {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						s, _ := Stat(path) // TODO: handle err
-						resultsChan <- Result{Path: path, Stats: s}
+						if s, err := Stat(path); err == nil {
+							resultsChan <- Result{Path: path, Stats: s}
+						}
 					}()
 					return filepath.SkipDir
 				}
 				return nil
 			},
 			ErrorCallback: func(path string, err error) godirwalk.ErrorAction {
-				fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+				// TODO: non-fatal error, log only if verbose
+				// fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 				return godirwalk.SkipNode
 			},
 		})
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "FATAL ERROR: %s\n", err)
-			os.Exit(1)
-		}
 		wg.Wait()
-		close(resultsChan)
 	}()
-	return resultsChan
+	return &scanner
 }
 
 func inTargets(targets []string, path string) bool {

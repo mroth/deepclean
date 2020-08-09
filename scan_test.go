@@ -18,6 +18,7 @@ func TestScan(t *testing.T) {
 		path    string
 		targets []string
 		want    []Result // unordered!
+		wantErr bool
 	}{
 		{
 			name:    "case01 - no matched targets",
@@ -40,12 +41,18 @@ func TestScan(t *testing.T) {
 			targets: []string{"node_modules", "vendor", "target"},
 			want:    []Result{},
 		},
-		// TODO error case, unknown path (currently exits)
+		{
+			name:    "invalid path",
+			path:    "testdata/XXXXXX",
+			want:    []Result{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			var rs []Result
-			for r := range Scan(tt.path, tt.targets) {
+			scanner := Scan(tt.path, tt.targets)
+			for r := range scanner.C {
 				rs = append(rs, r)
 			}
 
@@ -55,6 +62,9 @@ func TestScan(t *testing.T) {
 			)
 			if !reflect.DeepEqual(want, got) {
 				t.Errorf("want %v, got %v", want, got)
+			}
+			if (scanner.Err() != nil) != tt.wantErr {
+				t.Errorf("wantErr: %v, got: %v", tt.wantErr, scanner.Err())
 			}
 		})
 	}

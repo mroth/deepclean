@@ -34,11 +34,11 @@ func main() {
 		dirname = "."
 	}
 
-	res := deepclean.Scan(dirname, targets)
-	printResults(res)
+	scanner := deepclean.Scan(dirname, targets)
+	displayResults(scanner)
 }
 
-func printResults(res <-chan deepclean.Result) {
+func displayResults(scanner *deepclean.Scanner) {
 	var rs []deepclean.Result
 
 	// if going to display sorted results, we wont display until scan is
@@ -62,7 +62,9 @@ func printResults(res <-chan deepclean.Result) {
 		}()
 	}
 
-	for r := range res {
+	// Iterate over results.  If not sorted, display as they come in,
+	// otherwise just collect them for later.
+	for r := range scanner.C {
 		rs = append(rs, r)
 		if !*sorted {
 			fmt.Println(formatResult(r))
@@ -70,16 +72,27 @@ func printResults(res <-chan deepclean.Result) {
 	}
 	close(done)
 
+	// handle fatal scan errors
+	if err := scanner.Err(); err != nil {
+		if *sorted {
+			fmt.Fprintf(os.Stderr, "\r") // clear spinner status
+		}
+		fmt.Fprintf(os.Stderr, "Fatal: %v\n", err)
+		os.Exit(1)
+	}
+
+	// display sorted results (if requested)
 	if *sorted {
 		sort.Slice(rs, func(i, j int) bool {
 			return rs[i].Stats.Files > rs[j].Stats.Files
 		})
-		fmt.Fprintf(os.Stderr, "\r√\n")
+		fmt.Fprintf(os.Stderr, "\r√\n") // spinner status
 		for _, r := range rs {
 			fmt.Println(formatResult(r))
 		}
 	}
 
+	// display totals
 	total := deepclean.Aggregate(rs...)
 	fmt.Fprintf(os.Stderr,
 		"\nTotal cleanable discovered: %d files, %v\n",
