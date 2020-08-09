@@ -24,8 +24,9 @@ snapshot:
   name_template: "{{ .Tag }}-next"
 brews:
   - tap:
-        owner: mroth
-        name: homebrew-formulas
+      owner: mroth
+      name: homebrew-formulas
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     description: "Scan and remove junk files from source code directories"
     homepage: "https://github.com/mroth/deepclean"
     skip_upload: false
