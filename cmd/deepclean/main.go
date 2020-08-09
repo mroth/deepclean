@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ func displayResults(scanner *deepclean.Scanner) {
 
 	// if going to display sorted results, we wont display until scan is
 	// complete, so display a progress monitor.
-	done := make(chan struct{})
+	ctx, cancelSpinner := context.WithCancel(context.Background())
 	if *sorted {
 		go func() {
 			s := spin.New()
@@ -55,7 +56,7 @@ func displayResults(scanner *deepclean.Scanner) {
 					fmt.Fprintf(os.Stderr,
 						"\r%v %s", s.Next(), strings.Repeat(".", len(rs)),
 					)
-				case <-done:
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -70,7 +71,7 @@ func displayResults(scanner *deepclean.Scanner) {
 			fmt.Println(formatResult(r))
 		}
 	}
-	close(done)
+	cancelSpinner()
 
 	// handle fatal scan errors
 	if err := scanner.Err(); err != nil {
