@@ -30,8 +30,4 @@ brews:
     homepage: "https://github.com/mroth/deepclean"
     skip_upload: false
 changelog:
-  sort: asc
-  filters:
-    exclude:
-    - '^docs:'
-    - '^test:'
+  skip: true
