@@ -88,7 +88,9 @@ func Stat(path string) (DirStats, error) {
 				return err
 			}
 			t.Files++
-			t.Bytes += uint64(fi.Size())
+			if !de.IsDir() {
+				t.Bytes += uint64(fi.Size())
+			}
 			return nil
 		},
 	})

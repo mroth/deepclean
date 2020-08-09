@@ -31,8 +31,8 @@ func TestScan(t *testing.T) {
 			path:    "testdata/case01",
 			targets: []string{"node_modules", "vendor", "target"},
 			want: []Result{
-				{Path: "testdata/case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 98}},
-				{Path: "testdata/case01/node_modules", Stats: DirStats{Files: 8, Bytes: 509}},
+				{Path: "testdata/case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 2}},
+				{Path: "testdata/case01/node_modules", Stats: DirStats{Files: 8, Bytes: 29}},
 			},
 		},
 		{
