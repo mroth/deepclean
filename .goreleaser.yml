@@ -11,6 +11,7 @@ builds:
       - windows
     goarch:
       - amd64
+      - arm64
 archives:
   - replacements:
       darwin: mac
@@ -25,8 +26,7 @@ snapshot:
 brews:
   - tap:
       owner: mroth
-      name: homebrew-formulas
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      name: homebrew-tap
     description: "Scan and remove junk files from source code directories"
     homepage: "https://github.com/mroth/deepclean"
     skip_upload: false
