@@ -1,12 +1,10 @@
 package deepclean
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"runtime"
 	"sync"
-
-	"github.com/karrick/godirwalk"
 )
 
 // Scanner contains fields to access the results of an ongoing Scan.
@@ -55,28 +53,30 @@ func Scan(path string, targets []string) *Scanner {
 		}
 
 		// primary file system walk looking for target directories
-		scanner.err = godirwalk.Walk(path, &godirwalk.Options{
-			Unsorted: true,
-			Callback: func(path string, de *godirwalk.Dirent) error {
-				// Positives are directories matching any target string. For
-				// each match, send to the worker pool to gather stats, but
-				// skip further walking of the subdir in this primary scan
-				// thread.
-				if de.IsDir() && inTargets(targets, path) {
-					matchedDirs <- path
-					return filepath.SkipDir
-				}
-				return nil
-			},
-			ErrorCallback: func(path string, err error) godirwalk.ErrorAction {
-				// TODO: non-fatal error, log only if verbose
+		scanner.err = filepath.WalkDir(path, func(fpath string, d fs.DirEntry, err error) error {
+			if err != nil && path == fpath {
+				// error on initial directory should be fatal
+				return err
+			} else if err != nil {
+				// error anywhere else should skip the file, but not abort the scan
+				// TODO: log only if verbose
 				// fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
-				return godirwalk.SkipNode
-			},
+				return nil
+			}
+
+			// Positives are directories matching any target string. For each
+			// match, send to the worker pool to gather stats, but skip further
+			// walking of the subdir in this primary scan thread.
+			if d.IsDir() && inTargets(targets, fpath) {
+				matchedDirs <- fpath
+				return fs.SkipDir
+			}
+			return nil
 		})
 		close(matchedDirs)
 		wg.Wait()
 	}()
+
 	return &scanner
 }
 
@@ -92,19 +92,21 @@ func inTargets(targets []string, path string) bool {
 // Stat walks the directory at path collecting the aggregate DirStats.
 func Stat(path string) (DirStats, error) {
 	var t DirStats
-	err := godirwalk.Walk(path, &godirwalk.Options{
-		Unsorted: true,
-		Callback: func(path string, de *godirwalk.Dirent) error {
-			fi, err := os.Stat(path)
-			if err != nil {
-				return err
-			}
-			t.Files++
-			if !de.IsDir() {
-				t.Bytes += uint64(fi.Size())
-			}
-			return nil
-		},
+	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		t.Files++
+		if !d.IsDir() {
+			t.Bytes += uint64(fi.Size())
+		}
+		return nil
 	})
 	return t, err
 }
