@@ -7,7 +7,7 @@ bench: bin/deepclean
 	hyperfine -w1 "$< ~/src"
 
 snapshot:
-	goreleaser --snapshot --rm-dist
+	goreleaser --snapshot --clean
 
 clean:
 	rm -rf bin
