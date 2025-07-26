@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/mroth/deepclean"
+	"github.com/mroth/deepclean/internal/deepclean"
 	"github.com/tj/go-spin"
 )
 

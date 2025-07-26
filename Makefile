@@ -1,7 +1,7 @@
 .PHONY: bench snapshot clean
 
-bin/deepclean: *.go ./cmd/deepclean/*.go
-	go build -o $@ ./cmd/deepclean
+bin/deepclean: */**/*.go go.mod go.sum
+	go build -o $@ .
 
 bench: bin/deepclean
 	hyperfine -w1 "$< ~/src"
