@@ -1,8 +1,8 @@
 package deepclean
 
 import (
+	"maps"
 	"os"
-	"reflect"
 	"testing"
 )
 
@@ -59,10 +59,10 @@ func TestScan(t *testing.T) {
 			}
 
 			var (
-				want = newResultSet(t, tt.want)
-				got  = newResultSet(t, rs)
+				want = resultsSetHelper(t, tt.want)
+				got  = resultsSetHelper(t, rs)
 			)
-			if !reflect.DeepEqual(want, got) {
+			if !maps.Equal(want, got) {
 				t.Errorf("want %v, got %v", want, got)
 			}
 			if (scanner.Err() != nil) != tt.wantErr {
@@ -72,8 +72,9 @@ func TestScan(t *testing.T) {
 	}
 }
 
-// convert unordered result slice into a set-like data structure for comparison
-func newResultSet(t *testing.T, rs []Result) map[Result]bool {
+// Convert unordered result slice into a set-like data structure for unordered comparison.
+// Will also automatically fail the test if there are duplicate results for the same path.
+func resultsSetHelper(t *testing.T, rs []Result) map[Result]bool {
 	t.Helper()
 	set := make(map[Result]bool)
 	for _, r := range rs {

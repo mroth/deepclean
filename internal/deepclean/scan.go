@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"path"
 	"runtime"
+	"slices"
 	"sync"
 )
 
@@ -40,25 +41,28 @@ func Scan(fsys fs.FS, path string, targets []string) *Scanner {
 		// spawn worker pool to perform stating of matched target directories
 		matchedDirs := make(chan string)
 		var wg sync.WaitGroup
-		for i := 0; i < runtime.NumCPU(); i++ {
+		for range runtime.GOMAXPROCS(0) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for fpath := range matchedDirs {
-					if s, err := Stat(fsys, fpath); err == nil {
-						resultsChan <- Result{Path: fpath, Stats: s}
+					s, err := Stat(fsys, fpath)
+					if err != nil {
+						continue
 					}
+					resultsChan <- Result{Path: fpath, Stats: s}
 				}
 			}()
 		}
 
 		// primary file system walk looking for target directories
 		scanner.err = fs.WalkDir(fsys, path, func(fpath string, d fs.DirEntry, err error) error {
-			if err != nil && path == fpath {
+			if err != nil {
 				// error on initial directory should be fatal
-				return err
-			} else if err != nil {
-				// error anywhere else should skip the file, but not abort the scan
+				if path == fpath {
+					return err
+				}
+				// error anywhere else should skip the file, not abort the scan
 				// TODO: log only if verbose
 				// fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 				return nil
@@ -81,12 +85,7 @@ func Scan(fsys fs.FS, path string, targets []string) *Scanner {
 }
 
 func inTargets(targets []string, fpath string) bool {
-	for _, t := range targets {
-		if t == path.Base(fpath) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(targets, path.Base(fpath))
 }
 
 // Stat walks the directory at path collecting the aggregate DirStats.
