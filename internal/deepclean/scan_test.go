@@ -1,6 +1,7 @@
 package deepclean
 
 import (
+	"os"
 	"reflect"
 	"testing"
 )
@@ -22,36 +23,37 @@ func TestScan(t *testing.T) {
 	}{
 		{
 			name:    "case01 - no matched targets",
-			path:    "testdata/case01",
+			path:    "case01",
 			targets: []string{"fizzbuzz"},
 			want:    []Result{},
 		},
 		{
 			name:    "case01 - sample",
-			path:    "testdata/case01",
+			path:    "case01",
 			targets: []string{"node_modules", "vendor", "target"},
 			want: []Result{
-				{Path: "testdata/case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 2}},
-				{Path: "testdata/case01/node_modules", Stats: DirStats{Files: 8, Bytes: 29}},
+				{Path: "case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 2}},
+				{Path: "case01/node_modules", Stats: DirStats{Files: 8, Bytes: 29}},
 			},
 		},
 		{
 			name:    "case02 - empty",
-			path:    "testdata/case02",
+			path:    "case02",
 			targets: []string{"node_modules", "vendor", "target"},
 			want:    []Result{},
 		},
 		{
 			name:    "invalid path",
-			path:    "testdata/XXXXXX",
+			path:    "XXXXXX",
 			want:    []Result{},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			testdataFS := os.DirFS("testdata")
 			var rs []Result
-			scanner := Scan(tt.path, tt.targets)
+			scanner := Scan(testdataFS, tt.path, tt.targets)
 			for r := range scanner.C {
 				rs = append(rs, r)
 			}

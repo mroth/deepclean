@@ -2,7 +2,7 @@ package deepclean
 
 import (
 	"io/fs"
-	"path/filepath"
+	"path"
 	"runtime"
 	"sync"
 )
@@ -27,10 +27,10 @@ func (s Scanner) Err() error {
 	return s.err
 }
 
-// Scan walks the path searching for directories matching the targets strings,
+// Scan walks the filesystem searching for directories matching the targets strings,
 // and then initiates a DirStats on the directory, returning the Results as they
 // occur on the returned channel.
-func Scan(path string, targets []string) *Scanner {
+func Scan(fsys fs.FS, path string, targets []string) *Scanner {
 	resultsChan := make(chan Result)
 	scanner := Scanner{C: resultsChan}
 
@@ -44,16 +44,16 @@ func Scan(path string, targets []string) *Scanner {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				for path := range matchedDirs {
-					if s, err := Stat(path); err == nil {
-						resultsChan <- Result{Path: path, Stats: s}
+				for fpath := range matchedDirs {
+					if s, err := Stat(fsys, fpath); err == nil {
+						resultsChan <- Result{Path: fpath, Stats: s}
 					}
 				}
 			}()
 		}
 
 		// primary file system walk looking for target directories
-		scanner.err = filepath.WalkDir(path, func(fpath string, d fs.DirEntry, err error) error {
+		scanner.err = fs.WalkDir(fsys, path, func(fpath string, d fs.DirEntry, err error) error {
 			if err != nil && path == fpath {
 				// error on initial directory should be fatal
 				return err
@@ -80,9 +80,9 @@ func Scan(path string, targets []string) *Scanner {
 	return &scanner
 }
 
-func inTargets(targets []string, path string) bool {
+func inTargets(targets []string, fpath string) bool {
 	for _, t := range targets {
-		if t == filepath.Base(path) {
+		if t == path.Base(fpath) {
 			return true
 		}
 	}
@@ -90,9 +90,9 @@ func inTargets(targets []string, path string) bool {
 }
 
 // Stat walks the directory at path collecting the aggregate DirStats.
-func Stat(path string) (DirStats, error) {
+func Stat(fsys fs.FS, path string) (DirStats, error) {
 	var t DirStats
-	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, path, func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

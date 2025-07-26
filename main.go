@@ -35,7 +35,8 @@ func main() {
 		dirname = "."
 	}
 
-	scanner := deepclean.Scan(dirname, targets)
+	fsys := os.DirFS(dirname)
+	scanner := deepclean.Scan(fsys, ".", targets)
 	displayResults(scanner)
 }
 
