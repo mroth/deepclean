@@ -39,9 +39,11 @@ func Scan(fsys fs.FS, path string, targets []string) *ScanTask {
 		defer close(resultsChan)
 
 		// spawn worker pool to perform stating of matched target directories
+		// cap at 8 workers (modern SSDs have 4-8 channels)
+		workerCount := min(8, runtime.GOMAXPROCS(0))
 		matchedDirs := make(chan string)
 		var wg sync.WaitGroup
-		for range runtime.GOMAXPROCS(0) {
+		for range workerCount {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
