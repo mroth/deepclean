@@ -36,7 +36,7 @@ func main() {
 	}
 
 	fsys := os.DirFS(dirname)
-	scanner := deepclean.Scan(fsys, ".", targets)
+	scanner := deepclean.Scan(context.Background(), fsys, ".", targets)
 	monitorResults(scanner)
 }
 
