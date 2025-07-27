@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/mroth/deepclean"
+	"github.com/mroth/deepclean/internal/deepclean"
 	"github.com/tj/go-spin"
 )
 
@@ -35,11 +35,12 @@ func main() {
 		dirname = "."
 	}
 
-	scanner := deepclean.Scan(dirname, targets)
-	displayResults(scanner)
+	fsys := os.DirFS(dirname)
+	scanner := deepclean.Scan(fsys, ".", targets)
+	monitorResults(scanner)
 }
 
-func displayResults(scanner *deepclean.Scanner) {
+func monitorResults(scanner *deepclean.ScanTask) {
 	var rs []deepclean.Result
 
 	// if going to display sorted results, we wont display until scan is

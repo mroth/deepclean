@@ -1,8 +1,19 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+version: 2
+
 before:
   hooks:
     - go mod download
+
+gomod:
+  # Proxy a module from proxy.golang.org, making the builds verifiable.
+  # This will only be effective if running against a tag. Snapshots will ignore
+  # this setting.
+  proxy: true
+
 builds:
-  - main: ./cmd/deepclean
+  - main: .
     env:
       - CGO_ENABLED=0
     goos:
@@ -12,20 +23,28 @@ builds:
     goarch:
       - amd64
       - arm64
+    flags:
+      - -trimpath
+
 archives:
-  - format_overrides:
+  - formats: [tar.gz]
+    format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
+
 checksum:
   name_template: 'checksums.txt'
-snapshot:
-  name_template: "{{ .Tag }}-next"
+
+release:
+  prerelease: auto
+
 brews:
-  - tap:
+  - repository:
       owner: mroth
       name: homebrew-tap
     description: "Scan and remove junk files from source code directories"
     homepage: "https://github.com/mroth/deepclean"
     skip_upload: false
+
 changelog:
-  skip: true
+  disable: true

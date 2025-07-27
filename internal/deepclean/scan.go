@@ -2,20 +2,21 @@ package deepclean
 
 import (
 	"io/fs"
-	"path/filepath"
+	"path"
 	"runtime"
+	"slices"
 	"sync"
 )
 
-// Scanner contains fields to access the results of an ongoing Scan.
+// ScanTask contains fields to access the results of an ongoing Scan.
 //
 // If the underlying filepath Walk encounters a fatal error, the results
 // channel will be closed and Err() will return a non-nil value. Always
-// drain (*Scanner).C prior to checking Err().
+// drain (*ScanTask).C prior to checking Err().
 //
 // If the underlying filepath Walk encounters a non-fatal error, the
 // walked directory will be silently skipped (for now).
-type Scanner struct {
+type ScanTask struct {
 	C   <-chan Result
 	err error
 }
@@ -23,42 +24,47 @@ type Scanner struct {
 // Err returns the error status of the underlying filepath Walk performed by the
 // scanner. This will only be set once the Walk has exited, indicated by the
 // Results channel being closed.
-func (s Scanner) Err() error {
+func (s ScanTask) Err() error {
 	return s.err
 }
 
-// Scan walks the path searching for directories matching the targets strings,
+// Scan walks the filesystem searching for directories matching the targets strings,
 // and then initiates a DirStats on the directory, returning the Results as they
-// occur on the returned channel.
-func Scan(path string, targets []string) *Scanner {
+// occur on ScanTask.C.
+func Scan(fsys fs.FS, path string, targets []string) *ScanTask {
 	resultsChan := make(chan Result)
-	scanner := Scanner{C: resultsChan}
+	scanner := ScanTask{C: resultsChan}
 
 	go func() {
 		defer close(resultsChan)
 
 		// spawn worker pool to perform stating of matched target directories
+		// cap at 8 workers (modern SSDs have 4-8 channels)
+		workerCount := min(8, runtime.GOMAXPROCS(0))
 		matchedDirs := make(chan string)
 		var wg sync.WaitGroup
-		for i := 0; i < runtime.NumCPU(); i++ {
+		for range workerCount {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				for path := range matchedDirs {
-					if s, err := Stat(path); err == nil {
-						resultsChan <- Result{Path: path, Stats: s}
+				for fpath := range matchedDirs {
+					s, err := Stat(fsys, fpath)
+					if err != nil {
+						continue
 					}
+					resultsChan <- Result{Path: fpath, Stats: s}
 				}
 			}()
 		}
 
 		// primary file system walk looking for target directories
-		scanner.err = filepath.WalkDir(path, func(fpath string, d fs.DirEntry, err error) error {
-			if err != nil && path == fpath {
+		scanner.err = fs.WalkDir(fsys, path, func(fpath string, d fs.DirEntry, err error) error {
+			if err != nil {
 				// error on initial directory should be fatal
-				return err
-			} else if err != nil {
-				// error anywhere else should skip the file, but not abort the scan
+				if path == fpath {
+					return err
+				}
+				// error anywhere else should skip the file, not abort the scan
 				// TODO: log only if verbose
 				// fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 				return nil
@@ -80,19 +86,14 @@ func Scan(path string, targets []string) *Scanner {
 	return &scanner
 }
 
-func inTargets(targets []string, path string) bool {
-	for _, t := range targets {
-		if t == filepath.Base(path) {
-			return true
-		}
-	}
-	return false
+func inTargets(targets []string, fpath string) bool {
+	return slices.Contains(targets, path.Base(fpath))
 }
 
 // Stat walks the directory at path collecting the aggregate DirStats.
-func Stat(path string) (DirStats, error) {
+func Stat(fsys fs.FS, path string) (DirStats, error) {
 	var t DirStats
-	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, path, func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

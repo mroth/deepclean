@@ -1,7 +1,8 @@
 package deepclean
 
 import (
-	"reflect"
+	"maps"
+	"os"
 	"testing"
 )
 
@@ -22,45 +23,46 @@ func TestScan(t *testing.T) {
 	}{
 		{
 			name:    "case01 - no matched targets",
-			path:    "testdata/case01",
+			path:    "case01",
 			targets: []string{"fizzbuzz"},
 			want:    []Result{},
 		},
 		{
 			name:    "case01 - sample",
-			path:    "testdata/case01",
+			path:    "case01",
 			targets: []string{"node_modules", "vendor", "target"},
 			want: []Result{
-				{Path: "testdata/case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 2}},
-				{Path: "testdata/case01/node_modules", Stats: DirStats{Files: 8, Bytes: 29}},
+				{Path: "case01/build/vendor", Stats: DirStats{Files: 2, Bytes: 2}},
+				{Path: "case01/node_modules", Stats: DirStats{Files: 8, Bytes: 29}},
 			},
 		},
 		{
 			name:    "case02 - empty",
-			path:    "testdata/case02",
+			path:    "case02",
 			targets: []string{"node_modules", "vendor", "target"},
 			want:    []Result{},
 		},
 		{
 			name:    "invalid path",
-			path:    "testdata/XXXXXX",
+			path:    "XXXXXX",
 			want:    []Result{},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			testdataFS := os.DirFS("testdata")
 			var rs []Result
-			scanner := Scan(tt.path, tt.targets)
+			scanner := Scan(testdataFS, tt.path, tt.targets)
 			for r := range scanner.C {
 				rs = append(rs, r)
 			}
 
 			var (
-				want = newResultSet(t, tt.want)
-				got  = newResultSet(t, rs)
+				want = resultsSetHelper(t, tt.want)
+				got  = resultsSetHelper(t, rs)
 			)
-			if !reflect.DeepEqual(want, got) {
+			if !maps.Equal(want, got) {
 				t.Errorf("want %v, got %v", want, got)
 			}
 			if (scanner.Err() != nil) != tt.wantErr {
@@ -70,8 +72,9 @@ func TestScan(t *testing.T) {
 	}
 }
 
-// convert unordered result slice into a set-like data structure for comparison
-func newResultSet(t *testing.T, rs []Result) map[Result]bool {
+// Convert unordered result slice into a set-like data structure for unordered comparison.
+// Will also automatically fail the test if there are duplicate results for the same path.
+func resultsSetHelper(t *testing.T, rs []Result) map[Result]bool {
 	t.Helper()
 	set := make(map[Result]bool)
 	for _, r := range rs {
