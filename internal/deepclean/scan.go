@@ -8,15 +8,15 @@ import (
 	"sync"
 )
 
-// Scanner contains fields to access the results of an ongoing Scan.
+// ScanTask contains fields to access the results of an ongoing Scan.
 //
 // If the underlying filepath Walk encounters a fatal error, the results
 // channel will be closed and Err() will return a non-nil value. Always
-// drain (*Scanner).C prior to checking Err().
+// drain (*ScanTask).C prior to checking Err().
 //
 // If the underlying filepath Walk encounters a non-fatal error, the
 // walked directory will be silently skipped (for now).
-type Scanner struct {
+type ScanTask struct {
 	C   <-chan Result
 	err error
 }
@@ -24,16 +24,16 @@ type Scanner struct {
 // Err returns the error status of the underlying filepath Walk performed by the
 // scanner. This will only be set once the Walk has exited, indicated by the
 // Results channel being closed.
-func (s Scanner) Err() error {
+func (s ScanTask) Err() error {
 	return s.err
 }
 
 // Scan walks the filesystem searching for directories matching the targets strings,
 // and then initiates a DirStats on the directory, returning the Results as they
-// occur on the returned channel.
-func Scan(fsys fs.FS, path string, targets []string) *Scanner {
+// occur on ScanTask.C.
+func Scan(fsys fs.FS, path string, targets []string) *ScanTask {
 	resultsChan := make(chan Result)
-	scanner := Scanner{C: resultsChan}
+	scanner := ScanTask{C: resultsChan}
 
 	go func() {
 		defer close(resultsChan)

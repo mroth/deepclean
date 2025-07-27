@@ -37,10 +37,10 @@ func main() {
 
 	fsys := os.DirFS(dirname)
 	scanner := deepclean.Scan(fsys, ".", targets)
-	displayResults(scanner)
+	monitorResults(scanner)
 }
 
-func displayResults(scanner *deepclean.Scanner) {
+func monitorResults(scanner *deepclean.ScanTask) {
 	var rs []deepclean.Result
 
 	// if going to display sorted results, we wont display until scan is
