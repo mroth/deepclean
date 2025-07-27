@@ -29,7 +29,7 @@ in git._
 ## Installation
 
 Grab a compiled binary from the [releases][1] page, or on macOS with [homebrew][2]
-you can `brew install mroth/formulas/deepclean`.
+you can `brew install mroth/tap/deepclean`.
 
 [1]: https://github.com/mroth/deepclean/releases
 [2]: https://brew.sh
