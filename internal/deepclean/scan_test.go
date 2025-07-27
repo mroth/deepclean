@@ -53,7 +53,7 @@ func TestScan(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testdataFS := os.DirFS("testdata")
 			var rs []Result
-			scanner := Scan(testdataFS, tt.path, tt.targets)
+			scanner := Scan(t.Context(), testdataFS, tt.path, tt.targets)
 			for r := range scanner.C {
 				rs = append(rs, r)
 			}
